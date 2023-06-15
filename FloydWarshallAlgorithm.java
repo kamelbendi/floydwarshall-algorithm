@@ -4,95 +4,133 @@ import java.io.PrintWriter;
 import java.util.Scanner;
 
 public class FloydWarshallAlgorithm {
-    private static final int INF = 99999;
 
-    public static int[][] readGraphFromFile(String filename) throws FileNotFoundException {
-        File file = new File(filename);
-        Scanner scanner = new Scanner(file);
+    private static int numNodes;
+    private static int numEdges;
+    private static int numRoutes;
+    private static int numIterations;
 
-        int numberOfNodes = scanner.nextInt();
-        int numberOfEdges = scanner.nextInt();
+    private static class Edge {
+        int source;
+        int target;
+        int weight;
 
-        int[][] graph = new int[numberOfNodes][numberOfNodes];
-        for (int i = 0; i < numberOfNodes; i++) {
-            for (int j = 0; j < numberOfNodes; j++) {
-                if (i == j) {
-                    graph[i][j] = 0;
-                } else {
-                    graph[i][j] = INF;
-                }
+        Edge(int source, int target, int weight) {
+            this.source = source;
+            this.target = target;
+            this.weight = weight;
+        }
+    }
+
+    private static int[][] readGraphFromFile(String filename) throws FileNotFoundException {
+        Scanner scanner = new Scanner(new File(filename));
+        numNodes = scanner.nextInt();
+        numEdges = scanner.nextInt();
+
+        int[][] graph = new int[numNodes][numNodes];
+        for (int i = 0; i < numNodes; i++) {
+            for (int j = 0; j < numNodes; j++) {
+                graph[i][j] = (i == j) ? 0 : Integer.MAX_VALUE;
             }
         }
 
-        for (int k = 0; k < numberOfEdges; k++) {
-            int source = scanner.nextInt() - 1; // Adjust indices to start from 0
+        for (int i = 0; i < numEdges; i++) {
+            int source = scanner.nextInt() - 1;
             int target = scanner.nextInt() - 1;
             int weight = scanner.nextInt();
             graph[source][target] = weight;
         }
 
         scanner.close();
-
         return graph;
     }
 
-    public static void floydWarshall(int[][] graph) {
-        int numberOfNodes = graph.length;
+    private static void writeOutputToFile(String filename, int[][] graph) throws FileNotFoundException {
+        PrintWriter writer = new PrintWriter(new File(filename));
+        for (int i = 0; i < numNodes; i++) {
+            for (int j = 0; j < numNodes; j++) {
+                if (graph[i][j] == Integer.MAX_VALUE) {
+                    writer.printf("d[%d,%d] = INF PATH: No path\n", i + 1, j + 1);
+                } else {
+                    writer.printf("d[%d,%d] = %d PATH: %d", i + 1, j + 1, graph[i][j], i + 1);
+                    printPath(j, i, graph, writer);
+                    writer.println();
+                }
+            }
+        }
+        writer.close();
+    }
 
-        int[][] dist = new int[numberOfNodes][numberOfNodes];
-        for (int i = 0; i < numberOfNodes; i++) {
-            System.arraycopy(graph[i], 0, dist[i], 0, numberOfNodes);
+    private static void printPath(int current, int source, int[][] graph, PrintWriter writer) {
+        if (current != source) {
+            int next = graph[current][source];
+            printPath(next, source, graph, writer);
+            writer.printf("-%d", current + 1);
+        }
+    }
+
+    private static void floydWarshall(int[][] graph) {
+        int[][] dist = new int[numNodes][numNodes];
+        int[][] next = new int[numNodes][numNodes];
+
+        for (int i = 0; i < numNodes; i++) {
+            for (int j = 0; j < numNodes; j++) {
+                dist[i][j] = graph[i][j];
+                if (dist[i][j] != Integer.MAX_VALUE && i != j) {
+                    next[i][j] = j;
+                } else {
+                    next[i][j] = -1;
+                }
+            }
         }
 
-        for (int k = 0; k < numberOfNodes; k++) {
-            for (int i = 0; i < numberOfNodes; i++) {
-                for (int j = 0; j < numberOfNodes; j++) {
-                    if (dist[i][k] != INF && dist[k][j] != INF && dist[i][k] + dist[k][j] < dist[i][j]) {
+        numIterations = 0;
+        for (int k = 0; k < numNodes; k++) {
+            for (int i = 0; i < numNodes; i++) {
+                for (int j = 0; j < numNodes; j++) {
+                    if (dist[i][k] != Integer.MAX_VALUE && dist[k][j] != Integer.MAX_VALUE
+                            && dist[i][k] + dist[k][j] < dist[i][j]) {
                         dist[i][j] = dist[i][k] + dist[k][j];
+                        next[i][j] = next[i][k];
                     }
                 }
             }
+            numIterations++;
         }
 
-        printSolution(dist);
+        numRoutes = countRoutes(next);
     }
 
-    private static void printSolution(int[][] dist) {
-        int numberOfNodes = dist.length;
-
-        for (int i = 0; i < numberOfNodes; i++) {
-            for (int j = 0; j < numberOfNodes; j++) {
-                if (dist[i][j] == INF) {
-                    System.out.println("d[" + (i + 1) + "," + (j + 1) + "] = INF");
-                } else {
-                    System.out.println("d[" + (i + 1) + "," + (j + 1) + "] = " + dist[i][j]);
+    private static int countRoutes(int[][] next) {
+        int count = 0;
+        for (int i = 0; i < numNodes; i++) {
+            for (int j = 0; j < numNodes; j++) {
+                if (i != j && next[i][j] != -1) {
+                    count++;
                 }
             }
         }
-    }
-
-    public static void writeOutputToFile(String filename, int[][] dist) throws FileNotFoundException {
-        PrintWriter writer = new PrintWriter(filename);
-        int numberOfNodes = dist.length;
-
-        for (int i = 0; i < numberOfNodes; i++) {
-            for (int j = 0; j < numberOfNodes; j++) {
-                if (dist[i][j] == INF) {
-                    writer.println("d[" + (i + 1) + "," + (j + 1) + "] = INF");
-                } else {
-                    writer.println("d[" + (i + 1) + "," + (j + 1) + "] = " + dist[i][j]);
-                }
-            }
-        }
-
-        writer.close();
+        return count;
     }
 
     public static void main(String[] args) {
         try {
-            int[][] graph = readGraphFromFile("g5.txt");
+            String inputFile = "g5.txt";
+            String outputFile = "g5_out.txt";
+
+            int[][] graph = readGraphFromFile(inputFile);
+
+            long startTime = System.currentTimeMillis();
             floydWarshall(graph);
-            writeOutputToFile("g5_out.txt", graph);
+            long endTime = System.currentTimeMillis();
+
+            writeOutputToFile(outputFile, graph);
+
+            System.out.println("Number of Nodes: " + numNodes);
+            System.out.println("Number of Edges: " + numEdges);
+            System.out.println("Number of Routes: " + numRoutes);
+            System.out.println("Iterations: " + numIterations);
+            System.out.println("Execution Time: " + (endTime - startTime) + " milliseconds");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
